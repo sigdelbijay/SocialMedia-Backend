@@ -65,7 +65,8 @@ router.route('/loadotherprofile').get(async function(req, res) {
             current_state = "2";
         } else current_state = "3";
     } else {
-        if(checkFriend(userId, profileId)) {
+        const friend = await checkFriend(userId, profileId);
+        if(friend) {
             current_state = "1";
         } else current_state = "4";
     }
@@ -110,6 +111,12 @@ async function acceptRequest(userId, profileId, res) {
     }
 }
 
+async function unfriend(userId, profileId, res) {
+    const deleteFriend1 = await app.locals.db.collection('Friends').deleteOne({userId, profileId});
+    const deleteFriend2 = await app.locals.db.collection('Friends').deleteOne({userId: profileId, profileId: userId});
+    res.status(200).json(deleteFriend1 && deleteFriend2 ? 1 : 0);
+}
+
 router.route('/poststatus').post(upload.single('image'), async function(req, res) {
     console.log(req.originalUrl);
     const body = req.body;
@@ -149,7 +156,7 @@ router.route('/performAction').post(async function(req, res) {
     } else if(body.operationType == 3) {
         acceptRequest(body.userId, body.profileId, res); 
     } else if(body.operationType == 4) {
-        sendRequest(body.userToken, body.profileId, res);
+        sendRequest(body.userId, body.profileId, res);
     }
 })
 
