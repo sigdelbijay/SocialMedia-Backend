@@ -53,14 +53,37 @@ router.route('/loadownprofile').get(async function(req, res) {
 
 router.route('/loadotherprofile').get(async function(req, res) {
     console.log(req.originalUrl);
-    const uid = req.query.uid;
+    const userId = req.query.uid;
     const profileId = req.query.profileId;
     const results = await app.locals.db.collection('Users').findOne({_id: profileId});
-    results["state"] = 4;
-    console.log(results);
+    let current_state = '0';
+    let request = await checkRequest(userId, profileId);
+    if(request) {
+        if(request['sender'] == userId) {
+            //request is send otherwise received
+            current_state = '2';
+        } else current_state = '3';
+    } else {
+        if(checkFriend(userId, profileId)) {
+            current_state = '1';
+        } else current_state = '4';
+    }
+
+    results["state"] = current_state;
     if(results) res.status(200).send(results);
     // else res.status(401).send("Invalid user");
 });
+
+async function checkRequest(userId, profileId) {
+    const results = await app.locals.db.collection('Requests').findOne({$or: [{sender:userId, receiver:profileId}, {sender:profileId, receiver:userId}]});
+    console.log(results);
+    return results;
+}
+
+async function checkFriend(userId, profileId) {
+    const results = await app.locals.db.collection('Friends').findOne({userId, profileId});
+    return results?true:false;
+}
 
 router.route('/poststatus').post(upload.single('image'), async function(req, res) {
     console.log(req.originalUrl);
@@ -88,13 +111,11 @@ router.route('/search').get(async function(req, res) {
     console.log(req.originalUrl);
     let keyword = req.query.keyword;
     const results = await app.locals.db.collection('Users').find({name: {$regex: keyword, $options: 'i'}}).toArray();
-    console.log("results", results);
     res.status(200).json(results);
 })
 
 router.route('/performAction').post(async function(req, res) {
     console.log(req.originalUrl);
-    console.log(req.body);
     let body = req.body;
     let requests, notifications;
     if(body.operationType == 1) {
