@@ -86,8 +86,9 @@ async function checkFriend(userId, profileId) {
 }
 
 async function cancelRequest(userId, profileId, res) {
-    const results = await app.locals.db.collection('Requests').deleteOne({sender: userId, receiver:profileId});
-    res.status(200).json(results?1:0);
+    const requests = await app.locals.db.collection('Requests').deleteOne({sender: userId, receiver:profileId});
+    const notifications = await app.locals.db.collection('Notifications').deleteOne({notificationTo: profileId, notificationFrom:userId});
+    res.status(200).json(requests && notifications?1:0);
 }
 
 async function sendRequest(userId, profileId, res) {
