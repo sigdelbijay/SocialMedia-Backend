@@ -85,14 +85,14 @@ async function checkFriend(userId, profileId) {
     return results?true:false;
 }
 
-async function cancelRequest(userId, profileId) {
+async function cancelRequest(userId, profileId, res) {
     const results = await app.locals.db.collection('Requests').deleteOne({sender: userId, receiver:profileId});
     res.status(200).json(results?1:0);
 }
 
-async function sendRequest(userId, profileId) {
-    const requests = await app.locals.db.collection('Requests').insertOne({sender: body.userId, receiver: body.profileId, date: Date.now()});
-    const notifications = await app.locals.db.collection('Notifications').insertOne({notificationTo: body.profileId, notificationFrom: body.userId, type: '4', notificationTime: Date.now()});
+async function sendRequest(userId, profileId, res) {
+    const requests = await app.locals.db.collection('Requests').insertOne({sender: userId, receiver: profileId, date: Date.now()});
+    const notifications = await app.locals.db.collection('Notifications').insertOne({notificationTo: profileId, notificationFrom: userId, type: '4', notificationTime: Date.now()});
     res.status(200).json(requests && notifications?1:0);
 }
 
@@ -132,11 +132,11 @@ router.route('/performAction').post(async function(req, res) {
     if(body.operationType == 1) {
         unfriend(body.userId, body.profileId); 
     } else if(body.operationType == 2) {
-        cancelRequest(body.userId, body.profileId); 
+        cancelRequest(body.userId, body.profileId, res); 
     } else if(body.operationType == 3) {
         acceptRequest(body.userId, body.profileId); 
     } else if(body.operationType == 4) {
-        sendRequest(body.userToken, body.profileId);
+        sendRequest(body.userToken, body.profileId, res);
     }
 })
 
