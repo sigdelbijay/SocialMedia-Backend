@@ -11,6 +11,7 @@ const multer  = require('multer')
 const upload = multer({ dest: 'uploads/' })
 
 const dbConnector = require('./database-connector');
+const { RSA_NO_PADDING } = require('constants');
 // const relation = require('./realtionship');
 
 dbConnector.init(app);
@@ -97,6 +98,18 @@ async function sendRequest(userId, profileId, res) {
     res.status(200).json(requests && notifications?1:0);
 }
 
+async function acceptRequest(userId, profileId, res) {
+    const friend1 = await app.locals.db.collection('Friends').insertOne({userId, profileId, friendOn: Date.now()});
+    const friend2 = await app.locals.db.collection('Friends').insertOne({userId: profileId, profileId: userId, friendOn: Date.now()});
+    const notification = await app.locals.db.collection('Notifications').insertOne({notificationTo: profileId, notificationFrom:userId, type: '5', notificationTime: Date.now(), postId: '0'});
+
+    if(friend1 && friend2 && notification) {
+        const deleteRequest1 = await app.locals.db.collection('Requests').deleteOne({sender: userId, receiver:profileId});
+        const deleteRequest2 = await app.locals.db.collection('Requests').deleteOne({sender: profileId, receiver:userId});
+        res.status(200).json(deleteRequest1 || deleteRequest2 ? 1 : 0);
+    }
+}
+
 router.route('/poststatus').post(upload.single('image'), async function(req, res) {
     console.log(req.originalUrl);
     const body = req.body;
@@ -129,13 +142,12 @@ router.route('/search').get(async function(req, res) {
 router.route('/performAction').post(async function(req, res) {
     console.log(req.originalUrl);
     let body = req.body;
-    let requests, notifications;
     if(body.operationType == 1) {
-        unfriend(body.userId, body.profileId); 
+        unfriend(body.userId, body.profileId, res); 
     } else if(body.operationType == 2) {
         cancelRequest(body.userId, body.profileId, res); 
     } else if(body.operationType == 3) {
-        acceptRequest(body.userId, body.profileId); 
+        acceptRequest(body.userId, body.profileId, res); 
     } else if(body.operationType == 4) {
         sendRequest(body.userToken, body.profileId, res);
     }
