@@ -61,7 +61,7 @@ router.route('/loadotherprofile').get(async function(req, res) {
     if(request) {
         if(request['sender'] == userId) {
             //request is send otherwise received
-            current_state = '"2";
+            current_state = "2";
         } else current_state = "3";
     } else {
         if(checkFriend(userId, profileId)) {
@@ -83,6 +83,17 @@ async function checkRequest(userId, profileId) {
 async function checkFriend(userId, profileId) {
     const results = await app.locals.db.collection('Friends').findOne({userId, profileId});
     return results?true:false;
+}
+
+async function cancelRequest(userId, profileId) {
+    const results = await app.locals.db.collection('Requests').deleteOne({sender: userId, receiver:profileId});
+    res.status(200).json(results?1:0);
+}
+
+async function sendRequest(userId, profileId) {
+    const requests = await app.locals.db.collection('Requests').insertOne({sender: body.userId, receiver: body.profileId, date: Date.now()});
+    const notifications = await app.locals.db.collection('Notifications').insertOne({notificationTo: body.profileId, notificationFrom: body.userId, type: '4', notificationTime: Date.now()});
+    res.status(200).json(requests && notifications?1:0);
 }
 
 router.route('/poststatus').post(upload.single('image'), async function(req, res) {
@@ -125,9 +136,7 @@ router.route('/performAction').post(async function(req, res) {
     } else if(body.operationType == 3) {
         acceptRequest(body.userId, body.profileId); 
     } else if(body.operationType == 4) {
-        requests = await app.locals.db.collection('Requests').insertOne({sender: body.userId, receiver: body.profileId, date: Date.now()});
-        notifications = await app.locals.db.collection('Notifications').insertOne({notificationTo: body.profileId, notificationFrom: body.userId, type: '4', notificationTime: Date.now()});
-        res.status(200).json(requests && notifications?1:0);
+        sendRequest(body.userToken, body.profileId);
     }
 })
 
