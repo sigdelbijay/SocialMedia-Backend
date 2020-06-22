@@ -6,7 +6,7 @@
     const MongoClient = mongodb.MongoClient;
 
     databaseConnector.init = (app) => {
-        let dbUrl = `mongodb://localhost:27017`;
+        let dbUrl = `mongodb://sigdelbjay:*radhaKrishna#@54.253.98.145/SocialMedia`;
 
         MongoClient.connect(dbUrl)
             .then((client) => {

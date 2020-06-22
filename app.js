@@ -51,11 +51,23 @@ router.route('/loadownprofile').get(async function(req, res) {
     // else res.status(401).send("Invalid user");
 });
 
+router.route('/loadotherprofile').get(async function(req, res) {
+    console.log(req.originalUrl);
+    const uid = req.query.uid;
+    const profileId = req.query.profileId;
+    const results = await app.locals.db.collection('Users').findOne({_id: profileId});
+    results["state"] = 4;
+    console.log(results);
+    if(results) res.status(200).send(results);
+    // else res.status(401).send("Invalid user");
+});
+
 router.route('/poststatus').post(upload.single('image'), async function(req, res) {
     console.log(req.originalUrl);
     const body = req.body;
+    const statusImage = "http://54.253.98.145:8000/" + req.file.filename;
     const results = await app.locals.db.collection('Posts').insertOne({ post: body.post, postUserId: body.postUserId, 
-        statusImage: req.file.filename, statusTime: Date.now(), likeCount: 0, hasComment: 0, privacy: body.privacy});
+        statusImage, statusTime: Date.now(), likeCount: 0, hasComment: 0, privacy: body.privacy});
     res.status(200).json(results?1:0);
 
 })
@@ -64,7 +76,7 @@ router.route('/uploadImage').post(upload.single('image'), async function(req, re
     console.log(req.originalUrl);
     let body = req.body;
     let results;
-    const statusImage = "http://10.0.2.2:8000/" + req.file.filename;
+    const statusImage = "http://54.253.98.145:8000/" + req.file.filename;
     if(body.imageUploadType == 0)
         results = await app.locals.db.collection('Users').updateOne({ _id: body.postUserId}, {$set: {profileUrl: statusImage}});
     else
@@ -78,6 +90,24 @@ router.route('/search').get(async function(req, res) {
     const results = await app.locals.db.collection('Users').find({name: {$regex: keyword, $options: 'i'}}).toArray();
     console.log("results", results);
     res.status(200).json(results);
+})
+
+router.route('/performAction').post(async function(req, res) {
+    console.log(req.originalUrl);
+    console.log(req.body);
+    let body = req.body;
+    let requests, notifications;
+    if(body.operationType == 1) {
+        unfriend(body.userId, body.profileId); 
+    } else if(body.operationType == 2) {
+        cancelRequest(body.userId, body.profileId); 
+    } else if(body.operationType == 3) {
+        acceptRequest(body.userId, body.profileId); 
+    } else if(body.operationType == 4) {
+        requests = await app.locals.db.collection('Requests').insertOne({sender: body.userId, receiver: body.profileId, date: Date.now()});
+        notifications = await app.locals.db.collection('Notifications').insertOne({notificationTo: body.profileId, notificationFrom: body.userId, type: '4', notificationTime: Date.now()});
+        res.status(200).json(requests && notifications?1:0);
+    }
 })
 
 module.exports = app;
