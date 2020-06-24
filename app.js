@@ -160,5 +160,21 @@ router.route('/performAction').post(async function(req, res) {
     }
 })
 
+router.route('/loadfriends').get(async function(req, res) {
+    let userId = req.query.userId;
+
+    //finding requests
+    let requests = await app.locals.db.collection('Requests').find({receiver: userId}).toArray();
+    let requestsIds = requests.map(x => x.sender);
+    let requestsDetails = await app.locals.db.collection('Users').find({_id: {$in: requestsIds}}).toArray();
+
+    //finding friends
+    let friends = await app.locals.db.collection('Friends').find({userId}).toArray();
+    let friendsIds = friends.map(x => x.profileId);
+    let friendsDetails = await app.locals.db.collection('Users').find({_id: {$in: friendsIds}}).toArray();
+    res.status(200).json({'requests': requestsDetails, 'friends': friendsDetails});
+
+})
+
 module.exports = app;
 
