@@ -120,7 +120,7 @@ async function unfriend(userId, profileId, res) {
 router.route('/poststatus').post(upload.single('image'), async function(req, res) {
     console.log(req.originalUrl);
     const body = req.body;
-    const statusImage = "http://54.253.98.145:8000/" + req.file.filename;
+    const statusImage = req.file.filename?"http://54.253.98.145:8000/" + req.file.filename:"";
     const results = await app.locals.db.collection('Posts').insertOne({ post: body.post, postUserId: body.postUserId, 
         statusImage, statusTime: Date.now(), likeCount: 0, hasComment: 0, privacy: body.privacy});
     res.status(200).json(results?1:0);
@@ -173,6 +173,50 @@ router.route('/loadfriends').get(async function(req, res) {
     let friendsIds = friends.map(x => x.profileId);
     let friendsDetails = await app.locals.db.collection('Users').find({_id: {$in: friendsIds}}).toArray();
     res.status(200).json({'requests': requestsDetails, 'friends': friendsDetails});
+
+})
+
+//user
+router.route('/profiletimeline').get(async function(req, res) {
+    console.log("req.query", req.query);
+    const userId = req.query.uid;
+    const skip = parseInt(req.query.offset);
+    const limit = parseInt(req.query.limit);
+    const currentState = req.query.current_state;
+
+    /* privacy level flags
+        0 -> friend privacy level
+        1 -> only me privacy level
+        2 -> public privacy level
+    */
+
+    /*
+     * 1 = two people are friends
+     * 2 = this person has sent friend request to another friend
+     * 3 = this person has received friend request from another friend
+     * 4 = people are unknown
+     * 5 = own profile
+     * */
+
+    const userInfo = await app.locals.db.collection('Users').findOne({_id: userId});
+    let results;
+    const sort = {'_id': -1}
+    if(currentState == 5) {
+        results = await app.locals.db.collection('Posts').find({postUserId: userId}).toArray();
+    } else if(currentState == 4) {
+        results = await app.locals.db.collection('Posts').find({postUserId: userId, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
+    } else if(currentState == 1) {
+        results = await app.locals.db.collection('Posts').find({postUserId: userId, privacy: {$in: ['0', '2']}}).skip(skip).limit(limit).sort(sort).toArray();
+    } else {
+        results = await app.locals.db.collection('Posts').find({postUserId: userId, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
+    }
+
+    for(let item of results) {
+        item['name'] = userInfo.name;
+        item['userProfile'] = userInfo.profileUrl;
+        item['userToken'] = userInfo.userToken;
+    }
+    res.status(200).json(results);
 
 })
 
