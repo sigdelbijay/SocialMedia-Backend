@@ -48,6 +48,7 @@ router.route('/loadownprofile').get(async function(req, res) {
     console.log(req.originalUrl);
     const uid = req.query.uid;
     const results = await app.locals.db.collection('Users').findOne({_id: uid});
+    results['state'] = '5';
     if(results) res.status(200).send(results);
     // else res.status(401).send("Invalid user");
 });
@@ -179,7 +180,7 @@ router.route('/loadfriends').get(async function(req, res) {
 //user
 router.route('/profiletimeline').get(async function(req, res) {
     console.log("req.query", req.query);
-    const userId = req.query.uid;
+    const uid = req.query.uid;
     const skip = parseInt(req.query.offset);
     const limit = parseInt(req.query.limit);
     const currentState = req.query.current_state;
@@ -198,17 +199,18 @@ router.route('/profiletimeline').get(async function(req, res) {
      * 5 = own profile
      * */
 
-    const userInfo = await app.locals.db.collection('Users').findOne({_id: userId});
+    const userInfo = await app.locals.db.collection('Users').findOne({_id: uid});
     let results;
     const sort = {'_id': -1}
     if(currentState == 5) {
-        results = await app.locals.db.collection('Posts').find({postUserId: userId}).toArray();
+        results = await app.locals.db.collection('Posts').find({postUserId: uid}).toArray();
+        console.log("results", results);
     } else if(currentState == 4) {
-        results = await app.locals.db.collection('Posts').find({postUserId: userId, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
+        results = await app.locals.db.collection('Posts').find({postUserId: uid, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
     } else if(currentState == 1) {
-        results = await app.locals.db.collection('Posts').find({postUserId: userId, privacy: {$in: ['0', '2']}}).skip(skip).limit(limit).sort(sort).toArray();
+        results = await app.locals.db.collection('Posts').find({postUserId: uid, privacy: {$in: ['0', '2']}}).skip(skip).limit(limit).sort(sort).toArray();
     } else {
-        results = await app.locals.db.collection('Posts').find({postUserId: userId, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
+        results = await app.locals.db.collection('Posts').find({postUserId: uid, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
     }
 
     for(let item of results) {
