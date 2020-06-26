@@ -224,6 +224,10 @@ router.route('/profiletimeline').get(async function(req, res) {
         item['name'] = userInfo.name;
         item['userProfile'] = userInfo.profileUrl;
         item['userToken'] = userInfo.userToken;
+
+        const checkLike = await app.locals.db.collection("UserPostLikes").findOne({likeBy: uid, postOn: item._id});
+        item['isLiked'] = checkLike?true:false;
+        //TODO: viewing own like on other post
     }
     res.status(200).send(results);
 })
@@ -242,10 +246,41 @@ router.route('/gettimelinepost').get(async function(req, res) {
         post.name = user.name;
         post.userProfile = user.profileUrl;
         post.userToken = user.userToken;
+
+        const checkLike = await app.locals.db.collection("UserPostLikes").findOne({likeBy: uid, postOn: post._id});
+        item['isLiked'] = checkLike?true:false;
     }
     res.status(200).send(posts);
 
 })
+
+router.route('/likeunlike').post(async function(req, res) {
+    const userId = req.body.userId;
+    const contentId = req.body.postId;
+    const contentOwnerId = req.body.contentOwnerId;
+    const operationType = req.body.operationType;
+
+    if(operationType == 1) {
+
+        const posts = await app.locals.db.collection('Posts').updateOne({_id: contentId}, {$inc: {likeCount: 1}});
+        const userPostLike = await app.locals.db.collection('UserPostLikes').insertOne({likeBy: userId, postOn: contentId});
+        if(posts && userPostLike) {
+            const notifications = await app.locals.db.collection("Notifications").insertOne({notificationTo: contentOwnerId, notificationFrom: userId, type: operationType, notificationTime: Date.now()});
+            const likeCount = await app.locals.db.collection('Posts').findOne({_id: contentId}, {_id: 0, likeCount: 1});
+        }
+        res.status(200).json(likeCount);
+    } else {
+        const posts = await app.locals.db.collection('Posts').updateOne({_id: contentId}, {$inc: {likeCount: -1}});
+        const userPostLike = await app.locals.db.collection('UserPostLikes').deleteOne({likeBy: userId, postOn: contentId});
+        if(posts && userPostLike) {
+            const notifications = await app.locals.db.collection("Notifications").deleteOne({notificationTo: contentOwnerId, notificationFrom: userId});
+            const likeCount = await app.locals.db.collection('Posts').findOne({_id: contentId}, {_id: 0, likeCount: 1});
+        }
+        res.status(200).json(likeCount);
+    }
+})
+
+
 
 
 
