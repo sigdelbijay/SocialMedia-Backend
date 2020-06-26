@@ -73,7 +73,6 @@ router.route('/loadotherprofile').get(async function(req, res) {
     }
 
     results["state"] = current_state;
-    console.log("results returned: -", results);
     if(results) res.status(200).send(results);
     // else res.status(401).send("Invalid user");
 });
@@ -121,7 +120,7 @@ async function unfriend(userId, profileId, res) {
 router.route('/poststatus').post(upload.single('image'), async function(req, res) {
     console.log(req.originalUrl);
     const body = req.body;
-    const statusImage = req.file.filename?"http://54.253.98.145:8000/" + req.file.filename:"";
+    const statusImage = req.file?"http://54.253.98.145:8000/" + req.file.filename:"";
     const results = await app.locals.db.collection('Posts').insertOne({ post: body.post, postUserId: body.postUserId, 
         statusImage, statusTime: Date.now(), likeCount: 0, hasComment: 0, privacy: body.privacy});
     res.status(200).json(results?1:0);
@@ -179,7 +178,7 @@ router.route('/loadfriends').get(async function(req, res) {
 
 //user
 router.route('/profiletimeline').get(async function(req, res) {
-    console.log("req.query", req.query);
+    console.log(req.originalUrl);
     const uid = req.query.uid;
     const skip = parseInt(req.query.offset);
     const limit = parseInt(req.query.limit);
@@ -204,7 +203,6 @@ router.route('/profiletimeline').get(async function(req, res) {
     const sort = {'_id': -1}
     if(currentState == 5) {
         results = await app.locals.db.collection('Posts').find({postUserId: uid}).toArray();
-        console.log("results", results);
     } else if(currentState == 4) {
         results = await app.locals.db.collection('Posts').find({postUserId: uid, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
     } else if(currentState == 1) {
@@ -218,7 +216,7 @@ router.route('/profiletimeline').get(async function(req, res) {
         item['userProfile'] = userInfo.profileUrl;
         item['userToken'] = userInfo.userToken;
     }
-    res.status(200).json(results);
+    res.status(200).send(results);
 
 })
 
