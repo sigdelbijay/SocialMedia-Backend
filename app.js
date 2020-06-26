@@ -12,6 +12,8 @@ const upload = multer({ dest: 'uploads/' })
 
 const dbConnector = require('./database-connector');
 const { RSA_NO_PADDING } = require('constants');
+const { time } = require('console');
+const { ObjectId } = require('mongodb');
 // const relation = require('./realtionship');
 
 dbConnector.init(app);
@@ -123,6 +125,13 @@ router.route('/poststatus').post(upload.single('image'), async function(req, res
     const statusImage = req.file?"http://54.253.98.145:8000/" + req.file.filename:"";
     const results = await app.locals.db.collection('Posts').insertOne({ post: body.post, postUserId: body.postUserId, 
         statusImage, statusTime: Date.now(), likeCount: 0, hasComment: 0, privacy: body.privacy});
+
+    if(body.privacy == "0") {
+        const friends = await app.locals.db.collection("Friends").find({userId: body.postUserId}).toArray();
+        for(let item of friends) {
+            app.locals.db.collection("Timeline").insertOne({whoseTimeLine: item.profileId, postId: results.ops[0]._id, statusTime: results.ops[0].statusTime});
+        }
+    }
     res.status(200).json(results?1:0);
 
 })
@@ -217,8 +226,28 @@ router.route('/profiletimeline').get(async function(req, res) {
         item['userToken'] = userInfo.userToken;
     }
     res.status(200).send(results);
+})
+
+router.route('/gettimelinepost').get(async function(req, res) {
+    const uid = req.query.uid;
+    const skip = parseInt(req.query.offset);
+    const limit = parseInt(req.query.limit);
+    const sort = {'_id': -1}
+
+    const timeline = await app.locals.db.collection('Timeline').find({whoseTimeLine: uid}).sort(sort).skip(skip).limit(limit).toArray();
+    const postIds = timeline.map(x => x.postId);
+    const posts = await app.locals.db.collection('Posts').find({_id: {$in: postIds}}).toArray();
+    for(let post of posts) {
+        const user = await app.locals.db.collection('Users').findOne({_id: post.postUserId});
+        post.name = user.name;
+        post.userProfile = user.profileUrl;
+        post.userToken = user.userToken;
+    }
+    res.status(200).send(posts);
 
 })
+
+
 
 module.exports = app;
 
