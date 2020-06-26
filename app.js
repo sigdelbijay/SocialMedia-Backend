@@ -202,7 +202,7 @@ router.route('/profiletimeline').get(async function(req, res) {
     let results;
     const sort = {'_id': -1}
     if(currentState == 5) {
-        results = await app.locals.db.collection('Posts').find({postUserId: uid}).toArray();
+        results = await app.locals.db.collection('Posts').find({postUserId: uid}).skip(skip).limit(limit).sort(sort).toArray();
     } else if(currentState == 4) {
         results = await app.locals.db.collection('Posts').find({postUserId: uid, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
     } else if(currentState == 1) {
