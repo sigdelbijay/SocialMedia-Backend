@@ -267,16 +267,16 @@ router.route('/likeunlike').post(async function(req, res) {
         if(posts && userPostLike) {
             const notifications = await app.locals.db.collection("Notifications").insertOne({notificationTo: contentOwnerId, notificationFrom: userId, type: operationType, notificationTime: Date.now()});
             const likeCount = await app.locals.db.collection('Posts').findOne({_id: contentId}, {_id: 0, likeCount: 1});
+            res.status(200).json(likeCount);
         }
-        res.status(200).json(likeCount);
     } else {
         const posts = await app.locals.db.collection('Posts').updateOne({_id: contentId}, {$inc: {likeCount: -1}});
         const userPostLike = await app.locals.db.collection('UserPostLikes').deleteOne({likeBy: userId, postOn: contentId});
         if(posts && userPostLike) {
             const notifications = await app.locals.db.collection("Notifications").deleteOne({notificationTo: contentOwnerId, notificationFrom: userId});
             const likeCount = await app.locals.db.collection('Posts').findOne({_id: contentId}, {_id: 0, likeCount: 1});
+            res.status(200).json(likeCount);
         }
-        res.status(200).json(likeCount);
     }
 })
 
