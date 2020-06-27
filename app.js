@@ -248,7 +248,7 @@ router.route('/gettimelinepost').get(async function(req, res) {
         post.userToken = user.userToken;
 
         const checkLike = await app.locals.db.collection("UserPostLikes").findOne({likeBy: uid, postOn: post._id});
-        item['isLiked'] = checkLike?true:false;
+        post['isLiked'] = checkLike?true:false;
     }
     res.status(200).send(posts);
 
