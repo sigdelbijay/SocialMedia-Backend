@@ -124,7 +124,7 @@ router.route('/poststatus').post(upload.single('image'), async function(req, res
     const body = req.body;
     const statusImage = req.file?"http://54.253.98.145:8000/" + req.file.filename:"";
     const results = await app.locals.db.collection('Posts').insertOne({ post: body.post, postUserId: body.postUserId, 
-        statusImage, statusTime: Date.now(), likeCount: 0, hasComment: 0, privacy: body.privacy});
+        statusImage, statusTime: Date.now(), likeCount: 0, hasComment: 0, commentCount: 0, privacy: body.privacy});
 
     if(body.privacy == "0") {
         const friends = await app.locals.db.collection("Friends").find({userId: body.postUserId}).toArray();
@@ -255,8 +255,9 @@ router.route('/gettimelinepost').get(async function(req, res) {
 })
 
 router.route('/likeunlike').post(async function(req, res) {
+
     const userId = req.body.userId;
-    const contentId = req.body.postId;
+    const contentId = ObjectId(req.body.postId);
     const contentOwnerId = req.body.contentOwnerId;
     const operationType = req.body.operationType;
 
@@ -274,10 +275,73 @@ router.route('/likeunlike').post(async function(req, res) {
         const userPostLike = await app.locals.db.collection('UserPostLikes').deleteOne({likeBy: userId, postOn: contentId});
         if(posts && userPostLike) {
             const notifications = await app.locals.db.collection("Notifications").deleteOne({notificationTo: contentOwnerId, notificationFrom: userId});
-            const likeCount = await app.locals.db.collection('Posts').findOne({_id: contentId}, {_id: 0, likeCount: 1});
+            const likeCount = await app.locals.db.collection('Posts').findOne({_id: contentId});
             res.status(200).json(likeCount.likeCount);
         }
     }
+})
+
+router.route('/postcomment').post(async function(req, res) {
+    const comment = req.body.comment;
+    const commentBy = req.body.commentBy;
+
+    //user commeting on a post -> 0
+    //user replying on a comment -> 1
+    const level = req.body.level;
+
+    // user commenting to a post -> 0
+    // user replying to a comment -> postId
+    const superParentId = level == 0? 0: ObjectId(req.body.superParentId);
+
+    //user commeting to a post -> postId
+    //user replying to a comment -> commentId
+    const parentId = ObjectId(req.body.parentId);
+
+    //flag to tell comment has child comments or not
+    //default is 0
+    const hasSubComment = req.body.hasSubComment;
+
+    //id of post owner
+    const postUserId = req.body.postUserId;
+
+    //if user replying to a comment than this is userId of comment owner
+    const commentUserId = req.body.commentUserId;
+
+    const commentData = await app.locals.db.collection("Comments").insertOne({comment, commentBy, commentDate: Date.now(), superParentId, parentId, hasSubComment, level});
+    const cid = ObjectId(commentData.insertedId);
+    let postUpdate, commentUpdate;
+    if(level == 0) postUpdate = await app.locals.db.collection("Posts").updateOne({_id: parentId}, {$set: {hasComment: 1}, $inc: {commentCount: 1}});
+    else {
+        postUpdate = await app.locals.db.collection("Posts").updateOne({_id: superParentId}, {$inc: {commentCount: 1}});
+        commentUpdate = await app.locals.db.collection("Comments").updateOne({_id: parentId}, {$set: {hasSubComment: 1}});
+    }
+
+    //get commented data
+    let commentsGet, user;
+    if(level == 0) {
+        commentsGet = await app.locals.db.collection("Comments").findOne({parentId, _id: cid});
+        user = await app.locals.db.collection("Users").findOne({_id: commentsGet.commentBy});
+        commentsGet.name = user.name;
+        commentsGet.profileUrl = user.profileUrl;
+        commentsGet.userToken = user.userToken;
+    } else { //get subcommented data
+        commentsGet = await app.locals.db.collection("Comments").findOne({parentId, _id: cid, superParentId});
+        user = await app.locals.db.collection("Users").findOne({_id: commentsGet.commentBy});
+        commentsGet.name = user.name;
+        commentsGet.profileUrl = user.profileUrl;
+        commentsGet.userToken = user.userToken;
+    }
+
+        //notify that someone reply on your post
+        const updatePostId = level == 0 ? parentId: superParentId;
+        app.locals.db.collection("Notifications").insertOne({notificationTo: postUserId, notificationFrom: commentBy, type: 2, notificationTime: Date.now(), postId: updatePostId});
+    
+        //notify that someone replied on your comment
+        if(level == 1)
+            app.locals.db.collection("Notifications").insertOne({notificationTo: commentUserId, notificationFrom: commentBy, type: 3, notificationTime: Date.now(), postId: superParentId});
+
+    res.status(200).json({comment: commentsGet, subComments: {total: 0, subComments: []}});
+
 })
 
 
