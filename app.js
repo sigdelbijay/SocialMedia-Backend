@@ -196,7 +196,6 @@ router.route('/profiletimeline').get(async function(req, res) {
         uid = req.query.uid;
         profileId = req.query.profileId;
     }
-    const uid = req.query.uid;
     const skip = parseInt(req.query.offset);
     const limit = parseInt(req.query.limit);
 
@@ -214,17 +213,20 @@ router.route('/profiletimeline').get(async function(req, res) {
      * 5 = own profile
      * */
 
-    const userInfo = await app.locals.db.collection('Users').findOne({_id: currentState == 5 ? uid: profileId});
-    let results;
+    let results, userInfo;
     const sort = {'_id': -1}
     if(currentState == 5) {
         results = await app.locals.db.collection('Posts').find({postUserId: uid}).skip(skip).limit(limit).sort(sort).toArray();
+        userInfo = await app.locals.db.collection('Users').findOne({_id: uid});
     } else if(currentState == 4) {
         results = await app.locals.db.collection('Posts').find({postUserId: profileId, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
+        userInfo = await app.locals.db.collection('Users').findOne({_id: profileId});
     } else if(currentState == 1) {
         results = await app.locals.db.collection('Posts').find({postUserId: profileId, privacy: {$in: ['0', '2']}}).skip(skip).limit(limit).sort(sort).toArray();
+        userInfo = await app.locals.db.collection('Users').findOne({_id: profileId});
     } else {
         results = await app.locals.db.collection('Posts').find({postUserId: profileId, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
+        userInfo = await app.locals.db.collection('Users').findOne({_id: profileId});
     }
 
     for(let item of results) {
@@ -234,7 +236,6 @@ router.route('/profiletimeline').get(async function(req, res) {
 
         const checkLike = await app.locals.db.collection("UserPostLikes").findOne({likeBy: uid, postOn: item._id});
         item['isLiked'] = checkLike?true:false;
-        //TODO: viewing own like on other post
     }
     res.status(200).send(results);
 })
