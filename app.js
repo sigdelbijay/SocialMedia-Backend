@@ -282,6 +282,7 @@ router.route('/likeunlike').post(async function(req, res) {
 })
 
 router.route('/postcomment').post(async function(req, res) {
+    let results = [];
     const comment = req.body.comment;
     const commentBy = req.body.commentBy;
 
@@ -340,13 +341,49 @@ router.route('/postcomment').post(async function(req, res) {
         if(level == 1)
             app.locals.db.collection("Notifications").insertOne({notificationTo: commentUserId, notificationFrom: commentBy, type: 3, notificationTime: Date.now(), postId: superParentId});
 
-    res.status(200).json({comment: commentsGet, subComments: {total: 0, subComments: []}});
+        results.push({comment: commentsGet, subComments: {total: 0, lastComment: []}})
+
+    res.status(200).json({results});
+
+});
+
+router.route('/retrievetopcomment').get(async function(req, res) {
+    const results = [];
+    const postId = ObjectId(req.query.postId);
+    const sort = {commentDate: -1};
+    const postComments = await app.locals.db.collection('Comments').find({level: "0", parentId: postId}).sort(sort).toArray();
+    for(let comment of postComments) {
+        const userDetail = await app.locals.db.collection('Users').findOne({_id: comment.commentBy});
+        comment.name = userDetail.name;
+        comment.profileUrl = userDetail.profileUrl;
+        comment.userToken = userDetail.userToken;
+
+        let subComments = {};
+        subComments['lastComment'] = [];
+        subComments['total'] = 0;
+        if(comment.hasSubComment == 1) {
+            subComments['lastComment'] = await app.locals.db.collection('Comments').find({level: "1", parentId: ObjectId(comment._id), superParentId: postId}).project({_id: 0, superParentId:0, parentId:0, hasSubComment:0, level:0}).sort(sort).limit(1).toArray();
+            const commentUserDetail = await app.locals.db.collection('Users').findOne({_id: subComments.lastComment[0].commentBy});
+            subComments['lastComment'][0]['name'] = commentUserDetail.name;
+            subComments['lastComment'][0]['profileUrl'] = commentUserDetail.profileUrl;
+
+            subComments['total'] = await app.locals.db.collection('Comments').find({level: "1", parentId: ObjectId(comment._id), superParentId: postId}).count();
+        }
+
+        results.push({comment, subComments});
+        res.status(200).json({results});
+    }  
 
 })
 
+router.route('/retrievelowlevelcomment').get(async function(req, res) {
+    const results = [];
+    const postId = ObjectId(req.query.postId);
+    const commentId = ObjectId(req.query.commentId);
+    comment = await app.locals.db.collection('Comments').find({level: "1", parentId: commentId, superParentId: postId}).sort(sort).toArray();
+    res.status(200).json({comment});
 
-
-
+})
 
 module.exports = app;
 
