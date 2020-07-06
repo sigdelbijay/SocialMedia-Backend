@@ -188,10 +188,17 @@ router.route('/loadfriends').get(async function(req, res) {
 //user
 router.route('/profiletimeline').get(async function(req, res) {
     console.log(req.originalUrl);
+    const currentState = req.query.current_state;
+    let uid, profileId;
+    if(currentState ==5) {
+        uid = req.query.uid;
+    }else {
+        uid = req.query.uid;
+        profileId = req.query.profileId;
+    }
     const uid = req.query.uid;
     const skip = parseInt(req.query.offset);
     const limit = parseInt(req.query.limit);
-    const currentState = req.query.current_state;
 
     /* privacy level flags
         0 -> friend privacy level
@@ -207,17 +214,17 @@ router.route('/profiletimeline').get(async function(req, res) {
      * 5 = own profile
      * */
 
-    const userInfo = await app.locals.db.collection('Users').findOne({_id: uid});
+    const userInfo = await app.locals.db.collection('Users').findOne({_id: currentState == 5 ? uid: profileId});
     let results;
     const sort = {'_id': -1}
     if(currentState == 5) {
         results = await app.locals.db.collection('Posts').find({postUserId: uid}).skip(skip).limit(limit).sort(sort).toArray();
     } else if(currentState == 4) {
-        results = await app.locals.db.collection('Posts').find({postUserId: uid, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
+        results = await app.locals.db.collection('Posts').find({postUserId: profileId, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
     } else if(currentState == 1) {
-        results = await app.locals.db.collection('Posts').find({postUserId: uid, privacy: {$in: ['0', '2']}}).skip(skip).limit(limit).sort(sort).toArray();
+        results = await app.locals.db.collection('Posts').find({postUserId: profileId, privacy: {$in: ['0', '2']}}).skip(skip).limit(limit).sort(sort).toArray();
     } else {
-        results = await app.locals.db.collection('Posts').find({postUserId: uid, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
+        results = await app.locals.db.collection('Posts').find({postUserId: profileId, privacy: '2'}).skip(skip).limit(limit).sort(sort).toArray();
     }
 
     for(let item of results) {
