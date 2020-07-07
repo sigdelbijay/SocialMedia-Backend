@@ -300,7 +300,7 @@ router.route('/postcomment').post(async function(req, res) {
 
     // user commenting to a post -> 0
     // user replying to a comment -> postId
-    const superParentId = level == 0? 0: ObjectId(req.body.superParentId);
+    const superParentId = level == 0? "": ObjectId(req.body.superParentId);
 
     //user commeting to a post -> postId
     //user replying to a comment -> commentId
