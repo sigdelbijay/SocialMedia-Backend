@@ -372,15 +372,15 @@ router.route('/retrievetopcomment').get(async function(req, res) {
         if(comment.hasSubComment == 1) {
             subComments['lastComment'] = await app.locals.db.collection('Comments').find({level: "1", parentId: ObjectId(comment._id), superParentId: postId}).project({_id: 0, superParentId:0, parentId:0, hasSubComment:0, level:0}).sort(sort).limit(1).toArray();
             const commentUserDetail = await app.locals.db.collection('Users').findOne({_id: subComments.lastComment[0].commentBy});
-            subComments['lastComment'][0]['name'] = commentUserDetail.name;
+            subComments['lastComment'][0]['name'] = commentUserDetail.name; 
             subComments['lastComment'][0]['profileUrl'] = commentUserDetail.profileUrl;
 
             subComments['total'] = await app.locals.db.collection('Comments').find({level: "1", parentId: ObjectId(comment._id), superParentId: postId}).count();
         }
 
         results.push({comment, subComments});
-        res.status(200).json({results});
     }  
+    res.status(200).json({results});
 
 })
 
