@@ -246,7 +246,7 @@ router.route('/gettimelinepost').get(async function(req, res) {
     const limit = parseInt(req.query.limit);
     const sort = {'_id': -1}
 
-    const timeline = await app.locals.db.collection('Timeline').find({whoseTimeLine: uid}).sort(sort).skip(skip).limit(limit).toArray();
+    const timeline = await app.locals.db.collection('Timeline').find({whoseTimeLine: uid}).skip(skip).limit(limit).sort(sort).toArray();
     const postIds = timeline.map(x => x.postId);
     const posts = await app.locals.db.collection('Posts').find({_id: {$in: postIds}}).toArray();
     for(let post of posts) {
@@ -388,8 +388,15 @@ router.route('/retrievelowlevelcomment').get(async function(req, res) {
     const results = [];
     const postId = ObjectId(req.query.postId);
     const commentId = ObjectId(req.query.commentId);
-    comment = await app.locals.db.collection('Comments').find({level: "1", parentId: commentId, superParentId: postId}).sort(sort).toArray();
-    res.status(200).json({comment});
+    const sort = {_id: -1}
+    const comments = await app.locals.db.collection('Comments').find({level: "1", parentId: commentId, superParentId: postId}).sort(sort).toArray();
+    for(let comment of comments) {
+        const userDetail = await app.locals.db.collection('Users').findOne({_id: comment.commentBy});
+        comment.name = userDetail.name;
+        comment.profileUrl = userDetail.profileUrl;
+        comment.userToken = userDetail.userToken;
+    }
+    res.status(200).json(comments);
 
 })
 
