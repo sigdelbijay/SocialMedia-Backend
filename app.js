@@ -241,6 +241,7 @@ router.route('/profiletimeline').get(async function(req, res) {
 })
 
 router.route('/gettimelinepost').get(async function(req, res) {
+    console.log(req.originalUrl);
     const uid = req.query.uid;
     const skip = parseInt(req.query.offset);
     const limit = parseInt(req.query.limit);
@@ -263,7 +264,7 @@ router.route('/gettimelinepost').get(async function(req, res) {
 })
 
 router.route('/likeunlike').post(async function(req, res) {
-
+    console.log(req.originalUrl);
     const userId = req.body.userId;
     const contentId = ObjectId(req.body.postId);
     const contentOwnerId = req.body.contentOwnerId;
@@ -290,6 +291,7 @@ router.route('/likeunlike').post(async function(req, res) {
 })
 
 router.route('/postcomment').post(async function(req, res) {
+    console.log(req.originalUrl);
     let results = [];
     const comment = req.body.comment;
     const commentBy = req.body.commentBy;
@@ -356,6 +358,7 @@ router.route('/postcomment').post(async function(req, res) {
 });
 
 router.route('/retrievetopcomment').get(async function(req, res) {
+    console.log(req.originalUrl);
     const results = [];
     const postId = ObjectId(req.query.postId);
     const sort = {commentDate: -1};
@@ -385,6 +388,7 @@ router.route('/retrievetopcomment').get(async function(req, res) {
 })
 
 router.route('/retrievelowlevelcomment').get(async function(req, res) {
+    console.log(req.originalUrl);
     const results = [];
     const postId = ObjectId(req.query.postId);
     const commentId = ObjectId(req.query.commentId);
@@ -398,6 +402,21 @@ router.route('/retrievelowlevelcomment').get(async function(req, res) {
     }
     res.status(200).json(comments);
 
+})
+
+router.route('/getnotification').get(async function(req, res) {
+    console.log(req.originalUrl);
+    const userId = req.query.uid;
+    const notifications = await app.locals.db.collection('Notifications').find({notificationTo: userId}).toArray();
+    for(let notification of notifications) {
+        let userDetail = await app.locals.db.collection('Users').findOne({_id: notification.notificationFrom});
+        let postDetail = await app.locals.db.collection('Posts').findOne({_id: ObjectId(notification.postId)});
+        console.log("postDetail", postDetail);
+        notification.name = userDetail.name;
+        notification.profileUrl = userDetail.profileUrl;
+        notification.post = postDetail.post;
+    }
+    res.status(200).json(notifications);
 })
 
 module.exports = app;
