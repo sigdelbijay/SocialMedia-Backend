@@ -412,10 +412,9 @@ router.route('/getnotification').get(async function(req, res) {
     for(let notification of notifications) {
         let userDetail = await app.locals.db.collection('Users').findOne({_id: notification.notificationFrom});
         let postDetail = await app.locals.db.collection('Posts').findOne({_id: ObjectId(notification.postId)});
-        console.log("postDetail", postDetail);
         notification.name = userDetail.name;
         notification.profileUrl = userDetail.profileUrl;
-        notification.post = postDetail.post;
+        notification.post = postDetail ? postDetail.post : "";
     }
     res.status(200).json(notifications);
 })
