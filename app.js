@@ -421,16 +421,18 @@ router.route('/getnotification').get(async function(req, res) {
 })
 
 router.route('/notification/postdetails').get(async function(req, res) {
-    const postId = req.query.postId;
+    console.log(req.originalUrl);
+    const postId = ObjectId(req.query.postId);
     const userId = req.query.uid;
     const post = await app.locals.db.collection('Posts').findOne({_id: postId});
+    console.log("post", post);
     const userDetail = await app.locals.db.collection('Users').findOne({_id: post.postUserId});
     post.name = userDetail.name;
     post.profileUrl = userDetail.profileUrl;
     post.userToken = userDetail.userToken;
     const checkLike = await app.locals.db.collection("UserPostLikes").findOne({likeBy: userId, postOn: post._id});
         post['isLiked'] = checkLike?true:false;
-    res.status(200).json(post)
+    res.status(200).json(post);
 
 })
 
