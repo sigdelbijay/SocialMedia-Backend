@@ -407,7 +407,8 @@ router.route('/retrievelowlevelcomment').get(async function(req, res) {
 router.route('/getnotification').get(async function(req, res) {
     console.log(req.originalUrl);
     const userId = req.query.uid;
-    const notifications = await app.locals.db.collection('Notifications').find({notificationTo: userId}).toArray();
+    const sort = {_id: -1}
+    const notifications = await app.locals.db.collection('Notifications').find({notificationTo: userId}).sort(sort).toArray();
     for(let notification of notifications) {
         let userDetail = await app.locals.db.collection('Users').findOne({_id: notification.notificationFrom});
         let postDetail = await app.locals.db.collection('Posts').findOne({_id: ObjectId(notification.postId)});
@@ -417,6 +418,20 @@ router.route('/getnotification').get(async function(req, res) {
         notification.post = postDetail.post;
     }
     res.status(200).json(notifications);
+})
+
+router.route('/notification/postdetails').get(async function(req, res) {
+    const postId = req.query.postId;
+    const userId = req.query.uid;
+    const post = await app.locals.db.collection('Posts').findOne({_id: postId});
+    const userDetail = await app.locals.db.collection('Users').findOne({_id: post.postUserId});
+    post.name = userDetail.name;
+    post.profileUrl = userDetail.profileUrl;
+    post.userToken = userDetail.userToken;
+    const checkLike = await app.locals.db.collection("UserPostLikes").findOne({likeBy: userId, postOn: post._id});
+        post['isLiked'] = checkLike?true:false;
+    res.status(200).json(post)
+
 })
 
 module.exports = app;
