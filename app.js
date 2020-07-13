@@ -491,7 +491,8 @@ function sendNotification(userToken, title, body) {
             'content-type': 'application/json',
             'Authorization': `key=${keys.FIREBASE_API_ACCESS_KEY}`
         },
-        data: fields
+        data: fields,
+        isFromNotification: "true"
     }
     axios(options);
 }
