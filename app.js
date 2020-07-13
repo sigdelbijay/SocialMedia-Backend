@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
+const axios = require('axios');
 
 const app = express();
 const router = express.Router();
@@ -14,6 +15,7 @@ const dbConnector = require('./database-connector');
 const { RSA_NO_PADDING } = require('constants');
 const { time } = require('console');
 const { ObjectId } = require('mongodb');
+const keys = require('./keys.json');
 // const relation = require('./realtionship');
 
 dbConnector.init(app);
@@ -97,8 +99,20 @@ async function cancelRequest(userId, profileId, res) {
 
 async function sendRequest(userId, profileId, res) {
     const requests = await app.locals.db.collection('Requests').insertOne({sender: userId, receiver: profileId, date: Date.now()});
-    const notifications = await app.locals.db.collection('Notifications').insertOne({notificationTo: profileId, notificationFrom: userId, type: '4', notificationTime: Date.now()});
+    const notifications = await app.locals.db.collection('Notifications').insertOne({notificationTo: profileId, notificationFrom: userId, type: '4', notificationTime: Date.now(), postId: '0'});
+
+    //sending notification
+    senderInfo = await getUserInfo(userId);
+    receiverInfo = await getUserInfo(profileId);
+    const title = "New Friend Request"; 
+    const body = `${senderInfo.name} send you friend request`;
+    const userToken = receiverInfo.userToken;
+    sendNotification(userToken, title, body);
     res.status(200).json(requests && notifications?1:0);
+}
+
+async function getUserInfo(userId) {
+    return await app.locals.db.collection('Users').findOne({_id: userId});
 }
 
 async function acceptRequest(userId, profileId, res) {
@@ -109,6 +123,14 @@ async function acceptRequest(userId, profileId, res) {
     if(friend1 && friend2 && notification) {
         const deleteRequest1 = await app.locals.db.collection('Requests').deleteOne({sender: userId, receiver:profileId});
         const deleteRequest2 = await app.locals.db.collection('Requests').deleteOne({sender: profileId, receiver:userId});
+
+        //sending notification
+        senderInfo = await getUserInfo(userId);
+        receiverInfo = await getUserInfo(profileId);
+        const title = "Friend Request Accepted"; 
+        const body = `${senderInfo.name} accepted your friend request`;
+        const userToken = receiverInfo.userToken;
+        sendNotification(userToken, title, body);
         res.status(200).json(deleteRequest1 || deleteRequest2 ? 1 : 0);
     }
 }
@@ -275,7 +297,17 @@ router.route('/likeunlike').post(async function(req, res) {
         const posts = await app.locals.db.collection('Posts').updateOne({_id: contentId}, {$inc: {likeCount: 1}});
         const userPostLike = await app.locals.db.collection('UserPostLikes').insertOne({likeBy: userId, postOn: contentId});
         if(posts && userPostLike) {
-            const notifications = await app.locals.db.collection("Notifications").insertOne({notificationTo: contentOwnerId, notificationFrom: userId, type: operationType, notificationTime: Date.now(), postId: contentId});
+            if(userId != contentOwnerId) {
+                const notifications = await app.locals.db.collection("Notifications").insertOne({notificationTo: contentOwnerId, notificationFrom: userId, type: operationType, notificationTime: Date.now(), postId: contentId});
+                
+                //sending notification
+                senderInfo = await getUserInfo(userId);
+                receiverInfo = await getUserInfo(contentOwnerId);
+                const title = "New Like"; 
+                const body = `${senderInfo.name} liked your post`;
+                const userToken = receiverInfo.userToken;
+                sendNotification(userToken, title, body);
+            }
             //TODO: returning posts for now. same for else case
             const likeCount = await app.locals.db.collection('Posts').findOne({_id: contentId});
             res.status(200).json(likeCount);
@@ -284,7 +316,9 @@ router.route('/likeunlike').post(async function(req, res) {
         const posts = await app.locals.db.collection('Posts').updateOne({_id: contentId}, {$inc: {likeCount: -1}});
         const userPostLike = await app.locals.db.collection('UserPostLikes').deleteOne({likeBy: userId, postOn: contentId});
         if(posts && userPostLike) {
-            const notifications = await app.locals.db.collection("Notifications").deleteOne({notificationTo: contentOwnerId, notificationFrom: userId});
+            if(userId != contentOwnerId) {
+                const notifications = await app.locals.db.collection("Notifications").deleteOne({notificationTo: contentOwnerId, notificationFrom: userId});
+            }
             const likeCount = await app.locals.db.collection('Posts').findOne({_id: contentId});
             res.status(200).json(likeCount.likeCount);
         }
@@ -344,15 +378,25 @@ router.route('/postcomment').post(async function(req, res) {
         commentsGet.userToken = user.userToken;
     }
 
-        //notify that someone reply on your post
-        const updatePostId = level == 0 ? parentId: superParentId;
+    //notify that someone reply on your post
+    const updatePostId = level == 0 ? parentId: superParentId;
+    if(postUserId !== commentBy) {
         app.locals.db.collection("Notifications").insertOne({notificationTo: postUserId, notificationFrom: commentBy, type: 2, notificationTime: Date.now(), postId: updatePostId});
-    
-        //notify that someone replied on your comment
-        if(level == 1)
-            app.locals.db.collection("Notifications").insertOne({notificationTo: commentUserId, notificationFrom: commentBy, type: 3, notificationTime: Date.now(), postId: superParentId});
 
-        results.push({comment: commentsGet, subComments: {total: 0, lastComment: []}})
+        //sending notification
+        senderInfo = await getUserInfo(commentBy);
+        receiverInfo = await getUserInfo(postUserId);
+        const title = "New Comment"; 
+        const body = `${senderInfo.name} commented on your post`;
+        const userToken = receiverInfo.userToken;
+        sendNotification(userToken, title, body);
+    }
+
+    //notify that someone replied on your comment
+    if(level == 1)
+        app.locals.db.collection("Notifications").insertOne({notificationTo: commentUserId, notificationFrom: commentBy, type: 3, notificationTime: Date.now(), postId: superParentId});
+
+    results.push({comment: commentsGet, subComments: {total: 0, lastComment: []}});
 
     res.status(200).json({results});
 
@@ -434,6 +478,30 @@ router.route('/notification/postdetails').get(async function(req, res) {
     res.status(200).json(post);
 
 })
+
+//sending notifications
+function sendNotification(userToken, title, body) {
+    const clickAction = "com.example.socialmedia";
+    const msg = { body, title, icon: 'default', sound: 'default', clickAction };
+    const fields = { to: userToken, notification: msg };
+    const options = {
+        url: "https://fcm.googleapis.com/fcm/send",
+        method: 'post',
+        headers: {
+            'content-type': 'application/json',
+            'Authorization': `key=${keys.FIREBASE_API_ACCESS_KEY}`
+        },
+        data: fields
+    }
+    axios(options);
+}
+
+//sending notifications to user from server
+// router.route('/notification/send').post(async function(req, res) {
+//     console.log(req.originalUrl);
+//     sendNotification("cE6LoqgDTwOXp-eZNE9xNQ:APA91bFvwNSw8EUg2gwQVGHOwVCPhWlgSrxXzCyqmx3y-n-ouSz1TKTepU9lqxYqBVAwFs3bTE6dZTna3hOowkurN3HArQtki2p9x_H0YuADxtRTuEkdQmaLBelquDgGny55Xyjx80Rs",
+//         "From node.js", "this is a notificaiton from node.js");
+// });
 
 module.exports = app;
 
