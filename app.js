@@ -482,7 +482,7 @@ router.route('/notification/postdetails').get(async function(req, res) {
 //sending notifications
 function sendNotification(userToken, title, body) {
     const clickAction = "com.example.socialmedia";
-    const msg = { body, title, icon: 'default', sound: 'default', clickAction };
+    const msg = { body, title, icon: 'default', sound: 'default', clickAction, isFromNotification: "true"};
     const fields = { to: userToken, notification: msg };
     const options = {
         url: "https://fcm.googleapis.com/fcm/send",
@@ -491,8 +491,7 @@ function sendNotification(userToken, title, body) {
             'content-type': 'application/json',
             'Authorization': `key=${keys.FIREBASE_API_ACCESS_KEY}`
         },
-        data: fields,
-        isFromNotification: "true"
+        data: fields
     }
     axios(options);
 }
