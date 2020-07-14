@@ -269,9 +269,9 @@ router.route('/gettimelinepost').get(async function(req, res) {
     const limit = parseInt(req.query.limit);
     const sort = {'_id': -1}
 
-    const timeline = await app.locals.db.collection('Timeline').find({whoseTimeLine: uid}).skip(skip).limit(limit).sort(sort).toArray();
+    const timeline = await app.locals.db.collection('Timeline').find({whoseTimeLine: uid}).skip(skip).limit(limit).toArray();
     const postIds = timeline.map(x => x.postId);
-    const posts = await app.locals.db.collection('Posts').find({_id: {$in: postIds}}).toArray();
+    const posts = await app.locals.db.collection('Posts').find({_id: {$in: postIds}}).sort(sort).toArray();
     for(let post of posts) {
         const user = await app.locals.db.collection('Users').findOne({_id: post.postUserId});
         post.name = user.name;
@@ -406,7 +406,7 @@ router.route('/retrievetopcomment').get(async function(req, res) {
     console.log(req.originalUrl);
     const results = [];
     const postId = ObjectId(req.query.postId);
-    const sort = {commentDate: -1};
+    const sort = {_id: -1};
     const postComments = await app.locals.db.collection('Comments').find({level: "0", parentId: postId}).sort(sort).toArray();
     for(let comment of postComments) {
         const userDetail = await app.locals.db.collection('Users').findOne({_id: comment.commentBy});
