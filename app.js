@@ -269,7 +269,7 @@ router.route('/gettimelinepost').get(async function(req, res) {
     const limit = parseInt(req.query.limit);
     const sort = {'_id': -1}
 
-    const timeline = await app.locals.db.collection('Timeline').find({whoseTimeLine: uid}).skip(skip).limit(limit).toArray();
+    const timeline = await app.locals.db.collection('Timeline').find({whoseTimeLine: uid}).sort(sort).skip(skip).limit(limit).toArray();
     const postIds = timeline.map(x => x.postId);
     const posts = await app.locals.db.collection('Posts').find({_id: {$in: postIds}}).sort(sort).toArray();
     for(let post of posts) {
