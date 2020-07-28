@@ -378,7 +378,7 @@ router.route('/postcomment').post(async function(req, res) {
         commentsGet.userToken = user.userToken;
     }
 
-    //notify that someone reply on your post
+    //notify that someone comment on your post
     const updatePostId = level == 0 ? parentId: superParentId;
     if(postUserId !== commentBy) {
         app.locals.db.collection("Notifications").insertOne({notificationTo: postUserId, notificationFrom: commentBy, type: 2, notificationTime: Date.now(), postId: updatePostId});
